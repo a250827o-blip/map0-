@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>関東 心霊スポット MAP</title>
+
+  <!-- Leaflet.js -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700;900&family=Noto+Sans+JP:wght@300;400;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ─── リセット & ベース ─── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-deep:     #0a0a0f;
+      --bg-mid:      #12121a;
+      --bg-card:     #1a1a26;
+      --border:      rgba(180,160,255,0.15);
+      --accent-red:  #ff3b3b;
+      --accent-yel:  #ffc200;
+      --accent-blu:  #3bb8ff;
+      --accent-purp: #8f6fff;
+      --text-main:   #e8e0ff;
+      --text-sub:    #9990bb;
+      --blood:       #8b0000;
+      --glow-red:    0 0 12px rgba(255,59,59,0.7);
+      --glow-yel:    0 0 12px rgba(255,194,0,0.7);
+      --glow-blu:    0 0 12px rgba(59,184,255,0.7);
+      --glow-purp:   0 0 18px rgba(143,111,255,0.5);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg-deep);
+      color: var(--text-main);
+      font-family: 'Noto Sans JP', sans-serif;
+    }
+
+    /* ─── レイアウト ─── */
+    .app-wrapper {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ─── ヘッダー ─── */
+    header {
+      background: linear-gradient(135deg, #0d0010 0%, #0a0a0f 60%, #0f0008 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      box-shadow: 0 2px 30px rgba(0,0,0,0.8);
+      position: relative;
+      z-index: 1000;
+    }
+
+    header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 3px,
+        rgba(143,111,255,0.03) 3px,
+        rgba(143,111,255,0.03) 4px
+      );
+      pointer-events: none;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .skull-icon {
+      font-size: 2.2rem;
+      filter: drop-shadow(var(--glow-purp));
+      animation: pulse-skull 3s ease-in-out infinite;
+    }
+
+    @keyframes pulse-skull {
+      0%, 100% { opacity: 1; filter: drop-shadow(0 0 8px rgba(143,111,255,0.4)); }
+      50%       { opacity: 0.7; filter: drop-shadow(0 0 20px rgba(143,111,255,0.9)); }
+    }
+
+    .header-title {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .title-main {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 1.5rem;
+      font-weight: 900;
+      letter-spacing: 0.15em;
+      color: var(--text-main);
+      text-shadow: 0 0 20px rgba(143,111,255,0.6), 0 0 40px rgba(143,111,255,0.3);
+    }
+
+    .title-sub {
+      font-size: 0.68rem;
+      letter-spacing: 0.25em;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    /* ─── 凡例 ─── */
+    .legend {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: var(--text-sub);
+      letter-spacing: 0.05em;
+    }
+
+    .legend-dot {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.2);
+      flex-shrink: 0;
+    }
+    .dot-red  { background: var(--accent-red); box-shadow: var(--glow-red); }
+    .dot-yel  { background: var(--accent-yel); box-shadow: var(--glow-yel); }
+    .dot-blu  { background: var(--accent-blu); box-shadow: var(--glow-blu); }
+
+    /* ─── メインコンテンツ ─── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 310px 1fr;
+      overflow: hidden;
+    }
+
+    /* ─── サイドパネル ─── */
+    .side-panel {
+      background: var(--bg-mid);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.7rem;
+      letter-spacing: 0.2em;
+      color: var(--text-sub);
+      text-transform: uppercase;
+    }
+
+    /* フィルタ */
+    .filter-bar {
+      display: flex;
+      gap: 6px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-sub);
+      font-size: 0.7rem;
+      font-family: 'Noto Sans JP', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.05em;
+    }
+    .filter-btn:hover { border-color: var(--accent-purp); color: var(--text-main); }
+    .filter-btn.active-all  { background: var(--accent-purp); color: #fff; border-color: var(--accent-purp); }
+    .filter-btn.active-red  { background: var(--accent-red);  color: #fff; border-color: var(--accent-red); }
+    .filter-btn.active-yel  { background: var(--accent-yel);  color: #000; border-color: var(--accent-yel); }
+    .filter-btn.active-blu  { background: var(--accent-blu);  color: #000; border-color: var(--accent-blu); }
+
+    /* スポットリスト */
+    .spot-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+    .spot-list::-webkit-scrollbar { width: 4px; }
+    .spot-list::-webkit-scrollbar-track { background: transparent; }
+    .spot-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .spot-card {
+      padding: 11px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      cursor: pointer;
+      transition: background 0.2s;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .spot-card:hover    { background: rgba(143,111,255,0.08); }
+    .spot-card.selected { background: rgba(143,111,255,0.15); }
+
+    .card-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 5px;
+    }
+    .card-info { flex: 1; min-width: 0; }
+
+    .card-name {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-meta {
+      display: flex;
+      gap: 8px;
+      margin-top: 3px;
+      align-items: center;
+    }
+
+    .card-pref {
+      font-size: 0.65rem;
+      color: var(--text-sub);
+      letter-spacing: 0.05em;
+    }
+
+    .danger-badge {
+      font-size: 0.6rem;
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+    .badge-red { background: rgba(255,59,59,0.2); color: var(--accent-red); border: 1px solid rgba(255,59,59,0.4); }
+    .badge-yel { background: rgba(255,194,0,0.2); color: var(--accent-yel); border: 1px solid rgba(255,194,0,0.4); }
+    .badge-blu { background: rgba(59,184,255,0.2); color: var(--accent-blu); border: 1px solid rgba(59,184,255,0.4); }
+    /* ─── マップラッパー ─── */
+    #map-wrap {
+      position: relative;
+      background: #0a0a0f;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ─── ポップアップ ─── */
+    .leaflet-popup-content-wrapper {
+      background: var(--bg-card) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 8px !important;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.8) !important;
+      color: var(--text-main) !important;
+    }
+    .leaflet-popup-tip { background: var(--bg-card) !important; }
+    .leaflet-popup-content { margin: 0 !important; padding: 0 !important; }
+    .leaflet-popup-close-button { color: var(--text-sub) !important; font-size: 1.1rem !important; }
+
+    .popup-inner { padding: 16px 18px; min-width: 220px; max-width: 280px; }
+
+    .popup-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .popup-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .popup-name {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-main);
+      line-height: 1.3;
+    }
+
+    .popup-section {
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      color: var(--text-sub);
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+      margin-top: 8px;
+      text-transform: uppercase;
+    }
+
+    .popup-desc {
+      font-size: 0.78rem;
+      color: var(--text-sub);
+      line-height: 1.7;
+      margin-top: 6px;
+    }
+
+    .popup-danger {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.72rem;
+    }
+
+    .danger-bar-wrap {
+      flex: 1;
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .danger-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.5s ease;
+    }
+
+    /* ─── Leaflet オーバーライド ─── */
+    .leaflet-container { background: #0e0e16 !important; }
+
+    .leaflet-control-zoom a {
+      background: var(--bg-card) !important;
+      color: var(--text-main) !important;
+      border-color: var(--border) !important;
+    }
+    .leaflet-control-zoom a:hover { background: var(--bg-mid) !important; }
+
+    .leaflet-control-attribution {
+      background: rgba(10,10,15,0.8) !important;
+      color: var(--text-sub) !important;
+      font-size: 0.6rem !important;
+    }
+    .leaflet-control-attribution a { color: var(--accent-purp) !important; }
+
+    /* ─── カスタムマーカー ─── */
+    .custom-marker {
+      width: 28px;
+      height: 28px;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      border: 2px solid rgba(255,255,255,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .custom-marker::after {
+      content: '👻';
+      transform: rotate(45deg);
+      font-size: 13px;
+      display: block;
+    }
+
+    /* ─── フッター情報 ─── */
+    .map-overlay-info {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      background: rgba(10,10,15,0.85);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 0.65rem;
+      color: var(--text-sub);
+      backdrop-filter: blur(8px);
+      z-index: 500;
+      line-height: 1.8;
+    }
+
+    /* ─── レスポンシブ ─── */
+    @media (max-width: 768px) {
+      .main-grid { grid-template-columns: 1fr; grid-template-rows: 240px 1fr; }
+      .side-panel { border-right: none; border-bottom: 1px solid var(--border); }
+      .spot-list  { display: flex; flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 4px 8px; }
+      .spot-card  { min-width: 180px; border-bottom: none; border-right: 1px solid rgba(255,255,255,0.04); }
+      .title-main { font-size: 1.1rem; }
+      .legend     { display: none; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-wrapper">
+
+  <!-- ヘッダー -->
+  <header>
+    <div class="header-left">
+      <span class="skull-icon"></span>
+      <div class="header-title">
+        <span class="title-main">関東 心霊スポット MAP</span>
+        <span class="title-sub">Kanto Haunted Locations — GIS Edition</span>
+      </div>
+    </div>
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-dot dot-red"></div>危険度：高
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot dot-yel"></div>危険度：中
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot dot-blu"></div>危険度：低
+      </div>
+    </div>
+  </header>
+
+  <!-- メインエリア -->
+  <div class="main-grid">
+
+    <!-- サイドパネル -->
+    <aside class="side-panel">
+      <div class="panel-header">📍 スポット一覧 &nbsp;<span id="spot-count"></span></div>
+      <div class="filter-bar">
+        <button class="filter-btn active-all" data-filter="all">すべて</button>
+        <button class="filter-btn" data-filter="red">🔴 高危険</button>
+        <button class="filter-btn" data-filter="yellow">🟡 中危険</button>
+        <button class="filter-btn" data-filter="blue">🔵 低危険</button>
+      </div>
+      <div class="spot-list" id="spot-list"></div>
+    </aside>
+
+    <!-- 地図 -->
+    <div id="map-wrap">
+      <div id="map"></div>
+      <div class="map-overlay-info">
+        ⚠ 掲載スポットへの無断侵入は違法です<br>
+        私有地・立入禁止区域には入らないでください
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+// ─────────────────────────────────────────────
+// 1. データ定義
+// ─────────────────────────────────────────────
+const SPOTS = [
+  // ■ 危険度：高（赤）
+  {
+    id: 1, name: "青木ヶ原樹海",
+    pref: "山梨県（関東近郊）", danger: "high", color: "red",
+    lat: 35.4720, lng: 138.6210,
+    desc: "富士山北西麓に広がる約3,000haの原生林。方位磁針が狂うほどの磁鉄鉱を含む溶岩地帯。自殺の名所として世界的に知られ、毎年多くの遺体が発見される日本最恐スポットのひとつ。",
+    level: 98
+  },
+  {
+    id: 2, name: "旧犬鳴トンネル（仮称）",
+    pref: "千葉県", danger: "high", color: "red",
+    lat: 35.4080, lng: 140.2590,
+    desc: "千葉県市原市近郊の山中に存在するとされる廃トンネル。「ここから先は日本の法律は通じない」という看板が有名で、映画『犬鳴村』の着想源にもなった関東屈指の心霊スポット。",
+    level: 95
+  },
+  {
+    id: 3, name: "八王子城跡",
+    pref: "東京都八王子市", danger: "high", color: "red",
+    lat: 35.6527, lng: 139.2844,
+    desc: "1590年の落城時に城主の妻子・侍女たちが自害した。以降「金子曲輪」付近では女性の霊の目撃が絶えず、白装束の武士の霊も現れるという。国の指定史跡でもある。",
+    level: 92
+  },
+  {
+    id: 4, name: "鈴ヶ森刑場跡",
+    pref: "東京都品川区", danger: "high", color: "red",
+    lat: 35.5936, lng: 139.7355,
+    desc: "江戸時代の三大処刑場のひとつ。約20万人が処刑されたとも言われる。今もなお磔台・火炙り台の石組みが残り、異様な冷気と霊の目撃情報が後を絶たない都心の最恐スポット。",
+    level: 90
+  },
+  {
+    id: 5, name: "花魁淵（おいらんぶち）",
+    pref: "山梨県甲州市", danger: "high", color: "red",
+    lat: 35.7380, lng: 138.7650,
+    desc: "戦国時代、武田信玄が金山の秘密を守るため55人の遊女を全員崖から吊り下げ虐殺したとされる場所。夜になると女性の泣き声や白い着物の霊が現れると言い伝えられる。",
+    level: 93
+  },
+  // ■ 危険度：中（黄色）
+  {
+    id: 6, name: "千駄ヶ谷トンネル",
+    pref: "東京都渋谷区", danger: "medium", color: "yellow",
+    lat: 35.6836, lng: 139.7136,
+    desc: "東京オリンピック工事の際、移転できなかった寺院の墓地の下にトンネルが掘られた。バックミラーに髪を振り乱した女性の霊が映ったり、フロントガラスに手形が残るなどの報告が多数。",
+    level: 72
+  },
+  {
+    id: 7, name: "旧小峰トンネル",
+    pref: "東京都あきる野市", danger: "medium", color: "yellow",
+    lat: 35.7440, lng: 139.2440,
+    desc: "明治時代に開通した煉瓦造りのトンネル。工事中の事故死者が多く、現在も内部では人影・呻き声の目撃談が絶えない。台風被害で現在は閉鎖中だが心霊的評価は依然高い。",
+    level: 78
+  },
+  {
+    id: 8, name: "ジェイソン村（廃村）",
+    pref: "埼玉県飯能市", danger: "medium", color: "yellow",
+    lat: 35.8690, lng: 139.2510,
+    desc: "埼玉県飯能市の山中にある廃村。昭和40年代に廃村となった後、映画『13日の金曜日』のジェイソンに似た住民の目撃談から「ジェイソン村」と呼ばれるようになった都市伝説スポット。",
+    level: 68
+  },
+  {
+    id: 9, name: "神隠しの里（掛合の滝）",
+    pref: "神奈川県相模原市", danger: "medium", color: "yellow",
+    lat: 35.5780, lng: 139.0420,
+    desc: "相模原市内山中の滝周辺エリア。古くから「神隠し」が起きると言われ、登山者の失踪事例が記録されている。夜間は白い人影や光球の目撃が相次ぐ。",
+    level: 65
+  },
+  {
+    id: 10, name: "東京タワー（展望台）",
+    pref: "東京都港区", danger: "medium", color: "yellow",
+    lat: 35.6586, lng: 139.7454,
+    desc: "もとは墓地だった土地に建てられた東京のシンボル。非常階段を駆け下りる女性の霊が有名で、展望台で撮影した写真に人影が映り込む怪現象が多数報告されている。",
+    level: 60
+  },
+  {
+    id: 11, name: "旧吹上トンネル",
+    pref: "群馬県", danger: "medium", color: "yellow",
+    lat: 36.3980, lng: 138.9720,
+    desc: "群馬県内の廃トンネル。工事中の落盤事故で複数の作業員が犠牲になったとされ、トンネル内部では冷気・呻き声・白い影の目撃が集中。地元では近づくことを禁忌とする。",
+    level: 70
+  },
+  // ■ 危険度：低（青）
+  {
+    id: 12, name: "日光東照宮（裏参道）",
+    pref: "栃木県日光市", danger: "low", color: "blue",
+    lat: 36.7582, lng: 139.5990,
+    desc: "徳川家康を祀る世界遺産。正参道から外れた裏道では甲冑を纏った武士の霊が現れるという言い伝えがある。歴史的重みとオーラで「気を感じる」参拝者が多い。",
+    level: 40
+  },
+  {
+    id: 13, name: "江の島（岩屋洞窟）",
+    pref: "神奈川県藤沢市", danger: "low", color: "blue",
+    lat: 35.2998, lng: 139.4797,
+    desc: "江の島最奥の岩屋洞窟。弁財天信仰の霊場であり古来より霊的パワースポットとされてきた。暗闇の中で光球（オーブ）の目撃例があり、幻聴を聞く人もいるという。",
+    level: 38
+  },
+  {
+    id: 14, name: "千葉ポートタワー周辺",
+    pref: "千葉県千葉市", danger: "low", color: "blue",
+    lat: 35.6027, lng: 140.0946,
+    desc: "埋め立て地に建つタワー近辺では過去に多くの水難事故が起きており、夜間に水中から手が伸びてくる幻影を見たという報告がある。霊的危険度は低いが注意は必要。",
+    level: 35
+  },
+  {
+    id: 15, name: "佐白山とんねる（廃トンネル）",
+    pref: "茨城県笠間市", danger: "low", color: "blue",
+    lat: 36.3762, lng: 140.2989,
+    desc: "茨城県笠間市の廃トンネル。戦時中の防空壕跡とも言われており、内部では人影や足音の怪現象が報告されている。地域住民からは昔より「入ってはいけない場所」として伝えられる。",
+    level: 42
+  }
+];
+
+// ─────────────────────────────────────────────
+// 2. カラー設定
+// ─────────────────────────────────────────────
+const COLOR_MAP = {
+  red:    { hex: '#ff3b3b', glow: 'rgba(255,59,59,0.6)',  label: '高危険', badgeClass: 'badge-red' },
+  yellow: { hex: '#ffc200', glow: 'rgba(255,194,0,0.6)',  label: '中危険', badgeClass: 'badge-yel' },
+  blue:   { hex: '#3bb8ff', glow: 'rgba(59,184,255,0.6)', label: '低危険', badgeClass: 'badge-blu' }
+};
+
+// ─────────────────────────────────────────────
+// 3. Leaflet 地図初期化
+// ─────────────────────────────────────────────
+const map = L.map('map', {
+  center: [35.85, 139.20],
+  zoom: 9,
+  zoomControl: true,
+  preferCanvas: true
+});
+
+// タイル：CartoDB Dark Matter（ダークテーマに最適）
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+  subdomains: 'abcd',
+  maxZoom: 19
+}).addTo(map);
+
+// ─────────────────────────────────────────────
+// 4. カスタムマーカー生成
+// ─────────────────────────────────────────────
+function createMarkerIcon(colorKey) {
+  const c = COLOR_MAP[colorKey];
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44">
+      <defs>
+        <filter id="glow-${colorKey}">
+          <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+          <feMerge>
+            <feMergeNode in="coloredBlur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
+      <path d="M18 2 C9 2 2 9 2 18 C2 28 18 42 18 42 C18 42 34 28 34 18 C34 9 27 2 18 2 Z"
+            fill="${c.hex}" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"
+            filter="url(#glow-${colorKey})" opacity="0.95"/>
+      <circle cx="18" cy="18" r="8" fill="rgba(0,0,0,0.5)"/>
+      <text x="18" y="22" text-anchor="middle" font-size="11" fill="white"></text>
+    </svg>`;
+  return L.divIcon({
+    html: svg,
+    className: '',
+    iconSize: [36, 44],
+    iconAnchor: [18, 44],
+    popupAnchor: [0, -46]
+  });
+}
+
+// ─────────────────────────────────────────────
+// 5. マーカー & ポップアップ配置
+// ─────────────────────────────────────────────
+const markers = {};
+
+SPOTS.forEach(spot => {
+  const c = COLOR_MAP[spot.color];
+  const icon = createMarkerIcon(spot.color);
+  const marker = L.marker([spot.lat, spot.lng], { icon }).addTo(map);
+
+  const barColor = spot.color === 'red' ? '#ff3b3b' : spot.color === 'yellow' ? '#ffc200' : '#3bb8ff';
+  const popupHTML = `
+    <div class="popup-inner">
+      <div class="popup-header">
+        <div class="popup-dot" style="background:${c.hex}; box-shadow: 0 0 8px ${c.glow};"></div>
+        <span class="popup-name">${spot.name}</span>
+      </div>
+      <div style="font-size:0.7rem; color: var(--text-sub); margin-bottom:6px;">📍 ${spot.pref}</div>
+      <div class="popup-section">概要</div>
+      <p class="popup-desc">${spot.desc}</p>
+      <div class="popup-danger">
+        <span style="font-size:0.7rem; color:var(--text-sub); white-space:nowrap;">危険度</span>
+        <div class="danger-bar-wrap">
+          <div class="danger-bar-fill" style="width:${spot.level}%; background:${barColor};"></div>
+        </div>
+        <span style="font-size:0.72rem; color:${barColor}; font-weight:700; white-space:nowrap;">${spot.level}%</span>
+      </div>
+    </div>`;
+
+  marker.bindPopup(popupHTML, { maxWidth: 290, minWidth: 240 });
+  markers[spot.id] = marker;
+
+  marker.on('click', () => selectSpot(spot.id));
+});
+
+// ─────────────────────────────────────────────
+// 6. サイドリスト描画
+// ─────────────────────────────────────────────
+function renderList(filter) {
+  const list = document.getElementById('spot-list');
+  list.innerHTML = '';
+  const filtered = filter === 'all' ? SPOTS : SPOTS.filter(s => s.color === filter);
+
+  document.getElementById('spot-count').textContent = `${filtered.length}件`;
+
+  filtered.forEach(spot => {
+    const c = COLOR_MAP[spot.color];
+    const card = document.createElement('div');
+    card.className = 'spot-card';
+    card.dataset.id = spot.id;
+    card.innerHTML = `
+      <div class="card-dot" style="background:${c.hex}; box-shadow: 0 0 6px ${c.glow};"></div>
+      <div class="card-info">
+        <div class="card-name">${spot.name}</div>
+        <div class="card-meta">
+          <span class="card-pref">${spot.pref}</span>
+          <span class="danger-badge ${c.badgeClass}">${c.label}</span>
+        </div>
+      </div>`;
+    card.addEventListener('click', () => selectSpot(spot.id));
+    list.appendChild(card);
+  });
+}
+
+// ─────────────────────────────────────────────
+// 7. スポット選択
+// ─────────────────────────────────────────────
+let selectedId = null;
+
+function selectSpot(id) {
+  const spot = SPOTS.find(s => s.id === id);
+  if (!spot) return;
+
+  // リストハイライト
+  document.querySelectorAll('.spot-card').forEach(el => el.classList.remove('selected'));
+  const card = document.querySelector(`.spot-card[data-id="${id}"]`);
+  if (card) { card.classList.add('selected'); card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+
+  // 地図フライ & ポップアップ
+  map.flyTo([spot.lat, spot.lng], 13, { duration: 1.2 });
+  setTimeout(() => markers[id].openPopup(), 1300);
+  selectedId = id;
+}
+
+// ─────────────────────────────────────────────
+// 8. フィルタボタン
+// ─────────────────────────────────────────────
+let currentFilter = 'all';
+
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const f = btn.dataset.filter;
+    currentFilter = f;
+
+    // ボタンアクティブ状態
+    document.querySelectorAll('.filter-btn').forEach(b => {
+      b.className = 'filter-btn';
+    });
+    if (f === 'all')         btn.classList.add('active-all');
+    else if (f === 'red')    btn.classList.add('active-red');
+    else if (f === 'yellow') btn.classList.add('active-yel');
+    else if (f === 'blue')   btn.classList.add('active-blu');
+
+    // マーカー表示/非表示
+    SPOTS.forEach(spot => {
+      const m = markers[spot.id];
+      if (f === 'all' || spot.color === f) {
+        if (!map.hasLayer(m)) map.addLayer(m);
+      } else {
+        if (map.hasLayer(m)) map.removeLayer(m);
+      }
+    });
+
+    renderList(f);
+  });
+});
+
+// ─────────────────────────────────────────────
+// 9. 初期描画
+// ─────────────────────────────────────────────
+renderList('all');
+document.getElementById('spot-count').textContent = `${SPOTS.length}件`;
+</script>
+</body>
+</html>
